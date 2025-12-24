@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Orkut - Bate-papo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { margin:0; font-family: Arial; background:#e6ecff; }
+#login, #orkut { display:none; padding:20px; }
+.card { background:#fff; padding:15px; border-radius:8px; margin-bottom:10px; }
+button { background:#6a5acd; color:#fff; border:none; padding:10px; border-radius:5px; width:100%; margin-top:5px; }
+input { width:100%; padding:10px; margin:5px 0; }
+header { background:#6a5acd; color:white; padding:15px; text-align:center; }
+#scraps { max-height:300px; overflow-y:auto; }
+.scrap { background:#f1f1f1; margin:5px 0; padding:8px; border-radius:5px; }
+</style>
+</head>
+<body>
+
+<header>💙 Orkut</header>
+
+<div id="login" class="card">
+  <h3>Entrar / Cadastrar</h3>
+  <input id="nome" placeholder="Seu nome">
+  <input id="email" placeholder="Email">
+  <input id="senha" type="password" placeholder="Senha">
+  <button onclick="entrar()">Entrar / Criar</button>
+</div>
+
+<div id="orkut">
+  <div class="card">
+    <h3>Bem-vindo, <span id="nomeUsuario"></span></h3>
+    <button onclick="logout()">Sair</button>
+  </div>
+
+  <div class="card">
+    <h3>Scraps (recados)</h3>
+    <div id="scraps"></div>
+    <input id="msg" placeholder="Escreva um scrap">
+    <button onclick="enviar()">Enviar</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCUb2VNq9AETlzhE4w0eSwRPA4yBzrVC68",
+  authDomain: "meu-50495.firebaseapp.com",
+  projectId: "meu-50495",
+  storageBucket: "meu-50495.firebasestorage.app",
+  messagingSenderId: "941036013080",
+  appId: "1:941036013080:web:61281776f379d87867a56d"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const loginDiv = document.getElementById("login");
+const orkutDiv = document.getElementById("orkut");
+
+auth.onAuthStateChanged(user => {
+  if(user){
+    loginDiv.style.display = "none";
+    orkutDiv.style.display = "block";
+    carregarUsuario();
+    carregarScraps();
+  } else {
+    loginDiv.style.display = "block";
+    orkutDiv.style.display = "none";
+  }
+});
+
+function entrar(){
+  const nomeVal = document.getElementById("nome").value;
+  const emailVal = document.getElementById("email").value;
+  const senhaVal = document.getElementById("senha").value;
+
+  auth.signInWithEmailAndPassword(emailVal, senhaVal)
+  .catch(()=>{
+    auth.createUserWithEmailAndPassword(emailVal, senhaVal)
+    .then(cred=>{
+      const uid = cred.user.uid;
+      db.collection("usuarios").doc(uid).set({ nome: nomeVal });
+    });
+  });
+}
+
+function logout(){ auth.signOut(); }
+
+function carregarUsuario(){
+  const uid = auth.currentUser.uid;
+  db.collection("usuarios").doc(uid).get().then(doc=>{
+    if(doc.exists){
+      nomeUsuario.textContent = doc.data().nome;
+    }
+  });
+}
+
+function enviar(){
+  const msgVal = document.getElementById("msg").value;
+  if(msgVal.trim()=="") return;
+  db.collection("scraps").add({
+    texto: msgVal,
+    user: auth.currentUser.uid,
+    data: Date.now()
+  });
+  msg.value="";
+}
+
+function carregarScraps(){
+  db.collection("scraps").orderBy("data").onSnapshot(snap=>{
+    scraps.innerHTML="";
+    snap.forEach(doc=>{
+      db.collection("usuarios").doc(doc.data().user).get().then(u=>{
+        scraps.innerHTML += `
+          <div class="scrap">
+            <b>${u.data().nome}</b><br>${doc.data().texto}
+          </div>
+        `;
+      });
+    });
+  });
+}
+</script>
+
+</body>
+</html>
